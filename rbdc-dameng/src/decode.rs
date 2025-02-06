@@ -1,10 +1,11 @@
+use std::str::FromStr;
+
 use bigdecimal::BigDecimal;
+use odbc_api::sys::SqlDataType;
 use rbdc::{datetime::DateTime, Error};
 use rbs::Value;
-use std::str::FromStr;
-use odbc_api::sys::SqlDataType;
-use crate::common::data_type::DmDataType;
 
+use crate::common::data_type::DmDataType;
 use crate::DamengData;
 
 pub trait Decode {
@@ -67,11 +68,11 @@ impl Decode for Value {
                 let dec = BigDecimal::from_str(&value).map_err(|e| Error::from(e.to_string()))?;
                 return Ok(Value::String(dec.to_string()).into_ext("Decimal"));
             }
-            DmDataType::SmallInt =>{
+            DmDataType::SmallInt => {
                 let a = value.parse::<i32>()?;
                 return Ok(Value::I32(a));
             }
-            DmDataType::Integer =>{
+            DmDataType::Integer => {
                 let a = value.parse::<i32>()?;
                 return Ok(Value::I32(a));
             }
@@ -122,15 +123,15 @@ impl Decode for Value {
             DmDataType::Date => {
                 let a = DateTime::from_str(&value)?;
                 // return Ok(Value::from(a));
-                return Ok(Value::Ext("Date",Box::new(Value::I64(a.unix_timestamp_millis()))));
+                return Ok(Value::Ext("Date", Box::new(Value::I64(a.unix_timestamp_millis()))));
             }
             DmDataType::Time { precision } => {
                 // let date=FastDateTime::from_str(&value).unwrap().unix_timestamp_millis();
                 //  let timestamp=Timestamp::from_str(&value).unwrap();
                 //  // let tv=TV::new("Timestamp",Value::I64(date));
                 // return  Ok(Value::from(timestamp));
-                 let date=DateTime::from_str(&value).unwrap().unix_timestamp_millis();
-                 return Ok(Value::Ext("Time",Box::new(Value::I64(date))));
+                let date = DateTime::from_str(&value).unwrap().unix_timestamp_millis();
+                return Ok(Value::Ext("Time", Box::new(Value::I64(date))));
                 //
                 // let datetime=DateTime::from_str(&value).unwrap();
                 // return Ok(Value::from(datetime));
@@ -140,20 +141,19 @@ impl Decode for Value {
                 //  let timestamp=Timestamp::from_str(&value).unwrap();
                 //  // let tv=TV::new("Timestamp",Value::I64(date));
                 // return  Ok(Value::from(timestamp));
-                 let date=DateTime::from_str(&value).unwrap().unix_timestamp_millis();
-                 return Ok(Value::Ext("Timestamp",Box::new(Value::I64(date))));
+                let date = DateTime::from_str(&value).unwrap().unix_timestamp_millis();
+                return Ok(Value::Ext("Timestamp", Box::new(Value::I64(date))));
                 //
                 // let datetime=DateTime::from_str(&value).unwrap();
                 // return Ok(Value::from(datetime));
             }
             DmDataType::Other { data_type, column_size: _, decimal_digits: _ } => {
-
                 return match data_type {
                     SqlDataType::CHAR => { Ok(Value::String(value)) }
                     SqlDataType::NUMERIC => { Ok(Value::String(value)) }
                     SqlDataType::DECIMAL => { Ok(Value::String(value)) }
                     SqlDataType::INTEGER => { Ok(Value::I32(value.parse::<i32>()?)) }
-                    SqlDataType::SMALLINT => { Ok(Value::I32(value.parse::<i32>()?))  }
+                    SqlDataType::SMALLINT => { Ok(Value::I32(value.parse::<i32>()?)) }
                     SqlDataType::FLOAT => { Ok(Value::F32(value.parse::<f32>()?)) }
                     SqlDataType::REAL => { Ok(Value::F32(value.parse::<f32>()?)) }
                     SqlDataType::DOUBLE => { Ok(Value::F64(value.parse::<f64>()?)) }
@@ -174,8 +174,8 @@ impl Decode for Value {
                     SqlDataType::EXT_W_CHAR => { Ok(Value::String(value)) }
                     SqlDataType::EXT_W_VARCHAR => { Ok(Value::String(value)) }
                     SqlDataType::EXT_W_LONG_VARCHAR => { Ok(Value::String(value)) }
-                    SqlDataType::EXT_GUID => { Ok(Value::String(value)) },
-                    _ => { Ok(Value::String(value)) },
+                    SqlDataType::EXT_GUID => { Ok(Value::String(value)) }
+                    _ => { Ok(Value::String(value)) }
                 };
             }
             _ => {

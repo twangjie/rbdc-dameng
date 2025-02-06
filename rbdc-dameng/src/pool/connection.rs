@@ -1,11 +1,13 @@
-
-use crate::pool::shared::SharedPool;
-use crate::pool::manager::ODBCConnectionManager;
-pub use odbc_api::*;
 use std::ops::{Deref, DerefMut};
 use std::sync::Arc;
 
+pub use odbc_api::*;
+
+use crate::pool::manager::ODBCConnectionManager;
+use crate::pool::shared::SharedPool;
+
 pub type Connection = odbc_api::Connection<'static>;
+
 const DEREF_ERR: &str = "Connection already released to pool";
 
 pub struct ODBCConnection {

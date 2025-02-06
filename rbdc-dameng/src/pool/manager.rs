@@ -1,12 +1,13 @@
+use std::{fmt, sync::Arc};
+
 // use axum_core::extract::{FromRef, FromRequestParts};
 // use http::request::Parts;
 use odbc_api::Environment;
 use once_cell::sync::Lazy;
-use std::{convert::Infallible, fmt, sync::Arc};
 
-use crate::pool::shared::SharedPool;
 use crate::pool::connection::ODBCConnection;
 use crate::pool::errors::OdbcError;
+use crate::pool::shared::SharedPool;
 
 #[derive(Clone)]
 pub struct ODBCConnectionManager {

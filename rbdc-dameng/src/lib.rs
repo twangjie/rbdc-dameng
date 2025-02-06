@@ -1,6 +1,11 @@
 use std::sync::Arc;
-use rbdc::db::{Row, MetaData};
+
+use rbdc::db::{MetaData, Row};
 use rbs::Value;
+
+pub use driver::DamengDriver;
+pub use driver::DamengDriver as Driver;
+
 use crate::common::data_type::DmDataType;
 use crate::decode::Decode;
 
@@ -10,7 +15,6 @@ pub mod driver;
 pub mod encode;
 pub mod options;
 pub mod connection;
-// pub mod pool;
 
 #[derive(Debug, Clone)]
 pub struct DamengColumn {

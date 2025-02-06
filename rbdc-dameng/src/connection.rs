@@ -1,38 +1,31 @@
 use std::collections::HashMap;
-use anyhow::anyhow;
 use std::io::Write;
 use std::num::{NonZero, NonZeroUsize};
 use std::sync::{Arc, Mutex};
 
+use anyhow::anyhow;
 use futures_core::future::BoxFuture;
 use futures_util::FutureExt;
 use log::info;
 use odbc_api::{ColumnDescription, Cursor, Environment, IntoParameter, Nullability, Prepared, ResultSetMetadata};
 use odbc_api::buffers::{BufferDesc, ColumnarAnyBuffer, RowVec, TextRowSet};
 use odbc_api::Connection as OdbcApiConnection;
-use rbdc::db::{Connection, ExecResult, Row};
-use rbdc::Error;
-use rbs::Value;
-
-use crate::{DamengColumn, DamengData, DamengRow};
-use crate::driver::DamengDriver;
-use crate::encode::{Encode, sql_replacen};
-// use crate::encode::Encode;
-use crate::options::DamengConnectOptions;
-
-// use crate::pool::manager::ODBCConnectionManager;
 use odbc_api::ConnectionOptions;
 use odbc_api::handles::{ParameterDescription, StatementImpl};
 use odbc_api::parameter::VarCharArray;
 use once_cell::sync::Lazy;
+use rbdc::db::{Connection, ExecResult, Row};
+use rbdc::Error;
 use rbdc::pool::conn_manager::ConnManager;
-use crate::common::data_type::DmDataType;
-// use crate::pool::shared::SharedPool;
+use rbs::Value;
 
-// type OdbcConnection = OdbcApiConnection<'static>;
+use crate::{DamengColumn, DamengData, DamengRow};
+use crate::common::data_type::DmDataType;
+use crate::driver::DamengDriver;
+use crate::encode::{Encode, sql_replacen};
+use crate::options::DamengConnectOptions;
 
 static ENV: Lazy<Environment> = Lazy::new(|| Environment::new().unwrap());
-
 
 #[derive(Clone)]
 pub struct DamengConnection {
@@ -50,7 +43,6 @@ unsafe impl Sync for DamengConnection {}
 impl Connection for DamengConnection {
     fn get_rows(&mut self, sql: &str, params: Vec<Value>) -> BoxFuture<Result<Vec<Box<dyn Row>>, Error>> {
         let oc = self.clone();
-        // let sql: String = DamengDriver {}.pub_exchange(sql);
         let mut sql = sql.to_string();
 
         let nz_max_str_len = NonZeroUsize::new(self.max_str_len.unwrap_or(0)).unwrap();
@@ -70,8 +62,8 @@ impl Connection for DamengConnection {
             }
             log::debug!("encoded_params: {:?}",encoded_params);
 
-            let sql_before_encode = sql.clone();
-            let encoded_params = ["10", "20"];
+            // let sql_before_encode = sql.clone();
+            // let encoded_params = ["10", "20"];
 
             // 执行查询
             // FIXME: 需要检查是否有 sql注入风险 ？
@@ -91,15 +83,6 @@ impl Connection for DamengConnection {
 
             if let Ok(Some(mut cursor)) = binding.execute(&sql, ()) {
                 let mut columns: Vec<DamengColumn> = vec![];
-                // let headline: Vec<String> = match cursor.column_names() {
-                //     Ok(names) => names.collect::<Result<_, _>>().unwrap(),
-                //     Err(err) => { return Err(rbdc::Error::from("cursor.column_names() err")); }
-                // };
-
-                // let mut buffers = match TextRowSet::for_cursor(oc.batch_size, &mut cursor, oc.max_str_len) {
-                //     Ok(buffers) => buffers,
-                //     Err(err) => { return Err(rbdc::Error::from("TextRowSet::for_cursor() err")); }
-                // };
 
                 let mut max_str_lens: Vec<usize> = vec![];
 
@@ -131,18 +114,7 @@ impl Connection for DamengConnection {
                     });
                 }
 
-                println!("columns: {:?}", columns);
-
-                // Row set size of 5000 rows.
-                // let mut buffer = ColumnarAnyBuffer::from_descs(oc.batch_size, buffer_description);
-
-                // type Row = (VarCharArray<255>, VarCharArray<255>);
-                // let mut buffer = RowVec::<Row>::new(oc.batch_size);
-
-                // let mut buffer = match TextRowSet::for_cursor(oc.batch_size, &mut cursor, oc.max_str_len) {
-                //     Ok(buffers) => buffers,
-                //     Err(err) => { return Err(rbdc::Error::from("TextRowSet::for_cursor() err")); }
-                // };
+                // println!("columns: {:?}", columns);
 
                 let mut buffer = match TextRowSet::from_max_str_lens(columns.len(), max_str_lens) {
                     Ok(buffers) => buffers,
@@ -206,141 +178,6 @@ impl Connection for DamengConnection {
         })
     }
 
-    // fn get_rows(&mut self, sql: &str, params: Vec<Value>) -> BoxFuture<Result<Vec<Box<dyn Row>>, Error>> {
-    //     let oc = self.clone();
-    //
-    //     // let sql: String = DamengDriver {}.pub_exchange(sql);
-    //     let mut sql = sql.to_string();
-    //
-    //     let task = tokio::task::spawn_blocking(move || {
-    //         if sql.eq("begin") || sql.eq("commit") || sql.eq("rollback") {
-    //             log::warn!("不支持事务相关操作,直接返回");
-    //             return Err(rbdc::Error::from("不支持事务相关操作"));
-    //         }
-    //
-    //         // return Ok(Vec::new());
-    //
-    //         let mut results = Vec::new();
-    //
-    //         let mut encoded_params: Vec<_> = vec![];
-    //         for x in &params {
-    //             // encoded_params.push(x.encode(0)?) ;
-    //             encoded_params.push(x.clone().encode(0)?);
-    //         }
-    //
-    //         log::debug!("encoded_params: {:?}",encoded_params);
-    //
-    //         let sql_before_encode = sql.clone();
-    //         let encoded_params = ["10", "20"];
-    //
-    //         // 执行查询
-    //         // FIXME: 需要检查是否有 sql注入风险 ？
-    //         sql = sql_replacen(sql, params);
-    //         log::debug!("get_rows执行的sql:{}",sql);
-    //         // println!("将要执行的sql:{}", sql);
-    //
-    //         // Convert the input strings into parameters suitable to for use with ODBC.
-    //         // let params: Vec<_> = params
-    //         //     .iter()
-    //         //     .map(|param| param.as_str().into_parameter())
-    //         //     .collect();
-    //
-    //         // Execute the query as a one off, and pass the parameters.
-    //         let binding = oc.conn.clone();
-    //         let binding = binding.lock().unwrap();
-    //
-    //
-    //         if let Ok(Some(mut cursor)) = binding.execute(&sql , ()) {
-    //             // Write column names.
-    //             // cursor_to_csv(  cursor, &mut writer,   *batch_size,    *max_str_len, *ignore_truncation,  )?;
-    //
-    //             // results = match cursor_to_dm_row(cursor, oc.batch_size, oc.max_str_len, false) {
-    //             //     Ok(rows) =>    rows,
-    //             //     Err(err) => {  return Err(rbdc::Error::from("cursor_to_dm_row err")); }
-    //             // }
-    //
-    //             //let headline: Vec<String> = cursor.column_names()?.collect::<Result<_, _>>()?;
-    //
-    //             let mut columns: Vec<DamengColumn> = vec![];
-    //             let headline: Vec<String> = match cursor.column_names() {
-    //                 Ok(names) => names.collect::<Result<_, _>>().unwrap(),
-    //                 Err(err) => { return Err(rbdc::Error::from("cursor.column_names() err")); }
-    //             };
-    //
-    //             for (index, name) in headline.iter().enumerate() {
-    //                 let dt = cursor.col_data_type((index + 1) as u16).unwrap();
-    //                 // println!("{}: {:?}", name, dt);
-    //                 // let col_dt = cursor.col_data_type(col_index as u16).unwrap();
-    //                 // let col = buffer.at(col_index, 0).unwrap_or(&[]);
-    //                 columns.push(DamengColumn {
-    //                     name: headline[index].to_string(),
-    //                     column_type: dt,
-    //                 });
-    //             }
-    //
-    //             println!("columns: {:?}", columns);
-    //
-    //             let mut buffers = match TextRowSet::for_cursor(oc.batch_size, &mut cursor, oc.max_str_len) {
-    //                 Ok(buffers) => buffers,
-    //                 Err(err) => { return Err(rbdc::Error::from("TextRowSet::for_cursor() err")); }
-    //             };
-    //             let mut row_set_cursor = match cursor.bind_buffer(&mut buffers) {
-    //                 Ok(row_set_cursor) => row_set_cursor,
-    //                 Err(err) => { return Err(rbdc::Error::from("cursor.bind_buffer() err")); }
-    //             };
-    //             let mut num_batch = 0;
-    //
-    //             // let mut results = vec![];
-    //
-    //             while let Some(buffer) = row_set_cursor
-    //                 .fetch_with_truncation_check(false)
-    //                 .map_err(|error| provide_context_for_truncation_error(error, &headline)).unwrap()
-    //             {
-    //                 num_batch += 1;
-    //                 //info!(  "Fetched batch {} with {} rows.", num_batch,  buffer.num_rows() );
-    //
-    //                 for row_index in 0..buffer.num_rows() {
-    //                     // let record = (0..buffer.num_cols())
-    //                     //     .map(|col_index| buffer.at(col_index, row_index).unwrap_or(&[]));
-    //                     // writer.write_record(record)?;
-    //
-    //                     let mut datas = vec![];
-    //
-    //                     for col_index in 0..buffer.num_cols() {
-    //                         // let col_dt = cursor.col_data_type(col_index as u16);
-    //                         // let is_sql_null = col_dt.unwrap() == DmDataType::;
-    //
-    //                         let col = &columns[col_index];
-    //
-    //                         let colData = buffer.at(col_index, row_index).map(|col| col.to_vec());
-    //                         datas.push(DamengData {
-    //                             column_type: col.column_type,
-    //                             data: colData,
-    //                             is_sql_null: false,
-    //                         });
-    //                     }
-    //
-    //                     let taos_row = DamengRow {
-    //                         columns: Arc::new(columns.clone()),
-    //                         datas: datas,
-    //                     };
-    //                     results.push(Box::new(taos_row) as Box<dyn Row>);
-    //                 }
-    //             }
-    //         }
-    //         // None => {
-    //         //     eprintln!("Query came back empty (not even a schema has been returned). No output has been created.");
-    //         // }
-    //         // };
-    //
-    //         return Ok(results);
-    //     });
-    //
-    //     Box::pin(async move {
-    //         task.await.map_err(|e| Error::from(e.to_string()))?
-    //     })
-    // }
-
     fn exec(&mut self, sql: &str, params: Vec<Value>) -> BoxFuture<Result<ExecResult, Error>> {
         let oc = self.clone();
         let sql = sql.to_string();
@@ -376,13 +213,6 @@ impl Connection for DamengConnection {
                     last_insert_id: Value::Null,
                 })
             } else {
-                // let sql: String = DamengDriver {}.pub_exchange(&sql);
-                // let builder = manager.aquire().await.unwrap().statement(&sql);
-                // let mut stmt = builder.build().map_err(|e| Error::from(e.to_string()))?;
-                // for (idx, x) in params.into_iter().enumerate() {
-                //     x.encode(idx, &mut stmt).map_err(|e| Error::from(e.to_string()))?
-                // }
-
                 let mut sql = sql.to_string();
                 // FIXME: 需要检查是否有 sql注入风险 ？
                 sql = sql_replacen(sql, params);
@@ -393,49 +223,6 @@ impl Connection for DamengConnection {
                     .map_err(|e| Error::from(e.to_string()))?;
                 prepared.execute(()).map_err(|e| Error::from(e.to_string()))?;
                 let rows_affected = prepared.row_count().unwrap().unwrap_or(0);
-                // let mut rows_affected = 0;
-                // match prepared.execute(()) {
-                //     Err(e) => {
-                //         println!("{}", e);
-                //         return Err(Error::from(e.to_string()));
-                //     },
-                //     // Most drivers would return a result set even if no Movie with the title is found,
-                //     // the result set would just be empty. Well, most drivers.
-                //     Ok(None) => println!("No result set generated."),
-                //     Ok(Some(cursor)) => {
-                //         // ...print cursor contents...
-                //         // rows_affected = prepared.row_count().unwrap().unwrap_or(0);
-                //         // return rows_affected;
-                //         // 获取行数
-                //         rows_affected = cursor.row_count().unwrap_or(0);
-                //     }
-                // }
-
-
-                // // let rows_affected = prepared.row_count().unwrap().unwrap_or(0);
-                // let rows_affected =  match prepared.row_count() {
-                //     Ok(Some(v)) => v,
-                //     _ => 0
-                // };
-
-                // stmt.execute(&[]) .map_err(|e| Error::from(e.to_string()))?;
-                // if !*trans {
-                //     manager.aquire().await.unwrap().commit().map_err(|e| Error::from(e.to_string()))?;
-                //     *trans = false;
-                // }
-                // let rows_affected = stmt.row_count().map_err(|e| Error::from(e.to_string()))?;
-                // let mut ret = vec![];
-                // for i in 1..=stmt.bind_count() {
-                //     let res: Result<String, _> = stmt.bind_value(i);
-                //     match res {
-                //         Ok(v) => {
-                //             ret.push(Value::String(v))
-                //         }
-                //         Err(_) => {
-                //             ret.push(Value::Null)
-                //         }
-                //     }
-                // }
                 Ok(ExecResult {
                     rows_affected: rows_affected as u64,
                     last_insert_id: Value::Null,
@@ -450,17 +237,13 @@ impl Connection for DamengConnection {
     fn ping(&mut self) -> BoxFuture<Result<(), rbdc::Error>> {
         let oc = self.clone();
         let task = tokio::task::spawn_blocking(move || {
-            // manager.aquire().await.unwrap().ping() .map_err(|e| Error::from(e.to_string()))?;
-
-            // oc.exec("SELECT 1", vec![]);
-
             let binding = oc.conn.clone();
             let binding = binding.lock().unwrap();
             let x = match binding.execute("SELECT 1", ()) {
                 Err(e) => {
                     // if let Some(odbc_api::Error::TooLargeValueForBuffer {
                     // rbdc::Error::from(e)
-                    Err(rbdc::Error::from(""))
+                    Err(rbdc::Error::from(e.to_string()))
                 }
                 Ok(_) => {
                     Ok(())

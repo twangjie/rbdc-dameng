@@ -1,12 +1,15 @@
-use crate::options::DamengConnectOptions;
-use crate::connection::DamengConnection;
 use futures_core::future::BoxFuture;
-use rbdc::db::{ConnectOptions, Connection};
-use rbdc::db::{Driver, Placeholder};
 use rbdc::{Error, impl_exchange};
+use rbdc::db::{Connection, ConnectOptions};
+use rbdc::db::{Driver, Placeholder};
+
+use crate::connection::DamengConnection;
+use crate::options::DamengConnectOptions;
 
 #[derive(Debug)]
 pub struct DamengDriver {}
+
+pub type OdbcDriver = DamengDriver;
 
 impl Driver for DamengDriver {
     fn name(&self) -> &str {
@@ -37,12 +40,12 @@ impl Driver for DamengDriver {
 
 impl Placeholder for DamengDriver {
     fn exchange(&self, sql: &str) -> String {
-        impl_exchange(":",1,sql)
+        impl_exchange(":", 1, sql)
     }
 }
 
 impl DamengDriver {
-    pub fn pub_exchange(&self, sql: &str) -> String{
+    pub fn pub_exchange(&self, sql: &str) -> String {
         self.exchange(sql)
     }
 }

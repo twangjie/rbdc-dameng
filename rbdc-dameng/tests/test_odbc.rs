@@ -1,24 +1,25 @@
 #[cfg(test)]
 mod test {
-    // use clap::Parser;
-    //  use odbc_api_helper::Print;
+
     use log::info;
     use odbc_api::{ColumnDescription, ConnectionOptions, Cursor, Environment, IntoParameter, ResultSetMetadata};
     use serde::{Deserialize, Serialize};
     use std::fs;
-
-    // fn setup_logger() {
-    //     let _ = TerminalLogger::init(LevelFilter::Info, Config::default());
-    // }
+    use std::ops::Deref;
+    use rbdc::db::Driver;
+    use tokio::runtime::Runtime;
+    use rbdc_dameng::connection::DamengConnection;
+    use rbdc_dameng::DamengDriver;
+    use rbdc_dameng::options::DamengConnectOptions;
 
     #[test]
-    fn test_dm_odbc() {
+    fn test_dm_odbc()   {
         fast_log::init(fast_log::Config::new().console()).expect("");
 
         let start_time = std::time::Instant::now();
 
-        let connection_str = "Driver={DM8 ODBC Driver};Server=192.168.50.96:30236;UID=SYSDBA;PWD=SYSDBA001;CHARACTER_CODE=PG_UTF8;SCHEMA=AZCMS";
-        let sql = "select * from AZCMS.SUBEQUIPMENT WHERE SUBEQUIPMENTID between ? and ?";
+        let connection_str = "Driver={DM8 ODBC Driver};Server=192.168.50.96:30236;UID=SYSDBA;PWD=SYSDBA001;CHARACTER_CODE=PG_UTF8;SCHEMA=TEST";
+        let sql = "select * from test.BIZ_ACTIVITY WHERE ID between ? and ?";
 
         let env = Environment::new().unwrap();
         let conn = env
@@ -26,8 +27,6 @@ mod test {
             .unwrap();
 
         info!("connection time: {:?}", start_time.elapsed());
-
-        // let connection = OdbcDbConnection::new(conn, Options::new(SupportDatabase::Dameng)).unwrap();
 
         let params = [10, 20];
         // let cursor_impl = conn.execute(&config.sql, ()).unwrap().unwrap();
@@ -78,5 +77,6 @@ mod test {
         };
 
         info!("finish time: {:?}", start_time.elapsed());
+
     }
 }

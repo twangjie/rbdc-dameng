@@ -1,8 +1,9 @@
 use std::str::FromStr;
+
 use bigdecimal::BigDecimal;
 // use std::str::FromStr;
 use rbs::{Error, Value};
-use crate::common::data_type::DmDataType;
+
 // use std::ops::Index;
 //
 // use bigdecimal::BigDecimal;
@@ -106,7 +107,7 @@ impl Encode for Value {
 
 
 /// 将sql 语名中的 ？ 替换 为Value 中的值
-pub fn sql_replacen(mut sql:String,params: Vec<Value>)->String {
+pub fn sql_replacen(mut sql: String, params: Vec<Value>) -> String {
     // let  placeholders=vec!["###","@","##"];
     // let mut  base64s=vec![];
     // let mut index=0;
@@ -144,7 +145,7 @@ pub fn sql_replacen(mut sql:String,params: Vec<Value>)->String {
                 //
                 // println!("{}",v_rep);
 
-                sql = sql.replacen("?", format!("{}",v).as_str(), 1);
+                sql = sql.replacen("?", format!("{}", v).as_str(), 1);
 
                 // sql = sql.replace("\"", "'");
             }
@@ -153,12 +154,12 @@ pub fn sql_replacen(mut sql:String,params: Vec<Value>)->String {
             // Value::Map(_) => {}
             Value::Ext(name, ext_v) => {
                 if name.eq("Timestamp") {
-                    let v=format!("{}",ext_v);
-                    let v=v.parse::<u64>().unwrap_or_default();
-                    sql = sql.replacen("?", &*format!("{}",v), 1);
+                    let v = format!("{}", ext_v);
+                    let v = v.parse::<u64>().unwrap_or_default();
+                    sql = sql.replacen("?", &*format!("{}", v), 1);
                 }
-                if name.eq("DateTime"){
-                    let v=format!("{}",ext_v);
+                if name.eq("DateTime") {
+                    let v = format!("{}", ext_v);
                     let date = fastdate::DateTime::from_str(&v.as_str())
                         .unwrap_or(fastdate::DateTime::now());
                     // to yyyy-MM-dd HH:mm:ss.SSS
@@ -168,15 +169,14 @@ pub fn sql_replacen(mut sql:String,params: Vec<Value>)->String {
                     v = format!("'{}'", v.replace("T", " "));
                     // println!("v: {}", v);
 
-                    sql= sql.replacen("?", &*v, 1);
+                    sql = sql.replacen("?", &*v, 1);
                 }
-                if name.eq("Time"){
-                    sql= sql.replacen("?", &*format!("{}", ext_v), 1);
+                if name.eq("Time") {
+                    sql = sql.replacen("?", &*format!("{}", ext_v), 1);
                 }
-                if name.eq("Date"){
-                    sql= sql.replacen("?", &*format!("{}", ext_v), 1);
+                if name.eq("Date") {
+                    sql = sql.replacen("?", &*format!("{}", ext_v), 1);
                 }
-
             }
             // Value::Map(mut m) => {
             //     //Ok(IsNull::Yes)
@@ -224,7 +224,6 @@ pub fn sql_replacen(mut sql:String,params: Vec<Value>)->String {
                 sql = sql.replacen("?", &*format!("{}", v), 1);
             }
         }
-
     }
     sql = sql.replace("\"", "'");
 
@@ -235,23 +234,21 @@ pub fn sql_replacen(mut sql:String,params: Vec<Value>)->String {
 }
 
 #[cfg(test)]
-mod test{
+mod test {
     use std::fmt::Debug;
-    use std::str::FromStr;
-    use fastdate::DateTime;
-    use rbdc::date::Date;
-    use rbdc::{datetime, time};
-    use rbdc::timestamp::Timestamp;
+
     use rbs::Value;
+
     // use taos::ColumnView;
     use crate::encode::sql_replacen;
-    // use crate::encode::Encode;
+
+// use crate::encode::Encode;
 
     #[test]
-    fn test_value(){
-        let string_v=Value::String("测试".to_string());
-        let timestamp_v=Value::Ext("Timestamp",Box::new(Value::I64(1677859610000)));
-        println!("{},{}",timestamp_v,string_v);
+    fn test_value() {
+        let string_v = Value::String("测试".to_string());
+        let timestamp_v = Value::Ext("Timestamp", Box::new(Value::I64(1677859610000)));
+        println!("{},{}", timestamp_v, string_v);
         // let mut  cvs:Vec<ColumnView>=vec![];
         // string_v.encode(&mut cvs);
         // timestamp_v.encode(&mut cvs);
@@ -259,17 +256,18 @@ mod test{
         //     println!("{}",cv.to_vec());
         // }
     }
+
     #[test]
-    fn string_replacen(){
-        let mut sql="select * from table where id=? and name=? and u32=? and bool=? timestamp<? and date>? and datetime<? and time=?".to_string();
-        let json_string=r#"[{"ts##":"2023-04-13 22:32:38.223747","id":null,"device_no":"00","patientId":null,"vital_sign_name":"MDC_PULS_OXIM_SAT_O2","vital_sign_value":"100","vital_sign_unit":"MDC_DIM_PERCENT","acq_timestamp":1666277450000,"time_slot":null,"record_timestamp":null,"userId":null},{"ts":"2023-04-13 22:32:38.223848","id":null,"device_no":"00","patientId":null,"vital_sign_name":"MDC_PULS_OXIM_PULS_RATE","vital_sign_value":"94","vital_sign_unit":"MDC_DIM_BEAT_PER_MIN","acq_timestamp":1666277450000,"time_slot":null,"record_timestamp":null,"userId":null},{"ts":"2023-04-13 22:32:38.223929","id":null,"device_no":"00","patientId":null,"vital_sign_name":"MDC_BLD_PERF_INDEX","vital_sign_value":"2.19","vital_sign_unit":"MDC_DIM_PERCENT","acq_timestamp":1666277450000,"time_slot":null,"record_timestamp":null,"userId":null},{"ts":"2023-04-13 22:32:38.224007","id":null,"device_no":"00","patientId":null,"vital_sign_name":"MDC_TTHOR_RESP_RATE","vital_sign_value":"20","vital_sign_unit":"MDC_DIM_RESP_PER_MIN","acq_timestamp":1666277450000,"time_slot":null,"record_timestamp":null,"userId":null},{"ts":"2023-04-13 22:32:38.224084","id":null,"device_no":"00","patientId":null,"vital_sign_name":"MDC_ECG_V_P_C_RATE","vital_sign_value":"0","vital_sign_unit":"MDC_DIM_BEAT_PER_MIN","acq_timestamp":1666277450000,"time_slot":null,"record_timestamp":null,"userId":null},{"ts":"2023-04-13 22:32:38.224169","id":null,"device_no":"00","patientId":null,"vital_sign_name":"MNDRY_ECG_PAUSE_RATE","vital_sign_value":"0","vital_sign_unit":"MDC_DIM_BEAT_PER_MIN","acq_timestamp":1666277450000,"time_slot":null,"record_timestamp":null,"userId":null},{"ts":"2023-04-13 22:32:38.224248","id":null,"device_no":"00","patientId":null,"vital_sign_name":"MNDRY_ECG_VPB_RATE","vital_sign_value":"0","vital_sign_unit":"MDC_DIM_BEAT_PER_MIN","acq_timestamp":1666277450000,"time_slot":null,"record_timestamp":null,"userId":null},{"ts":"2023-04-13 22:32:38.224324","id":null,"device_no":"00","patientId":null,"vital_sign_name":"MNDRY_ECG_RHY_V_P_C_CPLT_RATE","vital_sign_value":"0","vital_sign_unit":"MDC_DIM_BEAT_PER_MIN","acq_timestamp":1666277450000,"time_slot":null,"record_timestamp":null,"userId":null},{"ts":"2023-04-13 22:32:38.224378","id":null,"device_no":"00","patientId":null,"vital_sign_name":"MNDRY_ECG_RHY_MISSB_RATE","vital_sign_value":"0","vital_sign_unit":"MDC_DIM_BEAT_PER_MIN","acq_timestamp":1666277450000,"time_slot":null,"record_timestamp":null,"userId":null},{"ts":"2023-04-13 22:32:38.224429","id":null,"device_no":"00","patientId":null,"vital_sign_name":"MNDRY_ECG_BEAT_V_P_C_RonT_RATE","vital_sign_value":"0","vital_sign_unit":"MDC_DIM_BEAT_PER_MIN","acq_timestamp":1666277450000,"time_slot":null,"record_timestamp":null,"userId":null},{"ts":"2023-04-13 22:32:38.22446","id":null,"device_no":"00","patientId":null,"vital_sign_name":"MDC_ECG_HEART_RATE","vital_sign_value":"95","vital_sign_unit":"MDC_DIM_BEAT_PER_MIN","acq_timestamp":1666277450000,"time_slot":null,"record_timestamp":null,"userId":null}]"#;
-        let name="字\\'符\\'串";
-        let vaules=vec![
+    fn string_replacen() {
+        let mut sql = "select * from table where id=? and name=? and u32=? and bool=? timestamp<? and date>? and datetime<? and time=?".to_string();
+        let json_string = r#"[{"ts##":"2023-04-13 22:32:38.223747","id":null,"device_no":"00","patientId":null,"vital_sign_name":"MDC_PULS_OXIM_SAT_O2","vital_sign_value":"100","vital_sign_unit":"MDC_DIM_PERCENT","acq_timestamp":1666277450000,"time_slot":null,"record_timestamp":null,"userId":null},{"ts":"2023-04-13 22:32:38.223848","id":null,"device_no":"00","patientId":null,"vital_sign_name":"MDC_PULS_OXIM_PULS_RATE","vital_sign_value":"94","vital_sign_unit":"MDC_DIM_BEAT_PER_MIN","acq_timestamp":1666277450000,"time_slot":null,"record_timestamp":null,"userId":null},{"ts":"2023-04-13 22:32:38.223929","id":null,"device_no":"00","patientId":null,"vital_sign_name":"MDC_BLD_PERF_INDEX","vital_sign_value":"2.19","vital_sign_unit":"MDC_DIM_PERCENT","acq_timestamp":1666277450000,"time_slot":null,"record_timestamp":null,"userId":null},{"ts":"2023-04-13 22:32:38.224007","id":null,"device_no":"00","patientId":null,"vital_sign_name":"MDC_TTHOR_RESP_RATE","vital_sign_value":"20","vital_sign_unit":"MDC_DIM_RESP_PER_MIN","acq_timestamp":1666277450000,"time_slot":null,"record_timestamp":null,"userId":null},{"ts":"2023-04-13 22:32:38.224084","id":null,"device_no":"00","patientId":null,"vital_sign_name":"MDC_ECG_V_P_C_RATE","vital_sign_value":"0","vital_sign_unit":"MDC_DIM_BEAT_PER_MIN","acq_timestamp":1666277450000,"time_slot":null,"record_timestamp":null,"userId":null},{"ts":"2023-04-13 22:32:38.224169","id":null,"device_no":"00","patientId":null,"vital_sign_name":"MNDRY_ECG_PAUSE_RATE","vital_sign_value":"0","vital_sign_unit":"MDC_DIM_BEAT_PER_MIN","acq_timestamp":1666277450000,"time_slot":null,"record_timestamp":null,"userId":null},{"ts":"2023-04-13 22:32:38.224248","id":null,"device_no":"00","patientId":null,"vital_sign_name":"MNDRY_ECG_VPB_RATE","vital_sign_value":"0","vital_sign_unit":"MDC_DIM_BEAT_PER_MIN","acq_timestamp":1666277450000,"time_slot":null,"record_timestamp":null,"userId":null},{"ts":"2023-04-13 22:32:38.224324","id":null,"device_no":"00","patientId":null,"vital_sign_name":"MNDRY_ECG_RHY_V_P_C_CPLT_RATE","vital_sign_value":"0","vital_sign_unit":"MDC_DIM_BEAT_PER_MIN","acq_timestamp":1666277450000,"time_slot":null,"record_timestamp":null,"userId":null},{"ts":"2023-04-13 22:32:38.224378","id":null,"device_no":"00","patientId":null,"vital_sign_name":"MNDRY_ECG_RHY_MISSB_RATE","vital_sign_value":"0","vital_sign_unit":"MDC_DIM_BEAT_PER_MIN","acq_timestamp":1666277450000,"time_slot":null,"record_timestamp":null,"userId":null},{"ts":"2023-04-13 22:32:38.224429","id":null,"device_no":"00","patientId":null,"vital_sign_name":"MNDRY_ECG_BEAT_V_P_C_RonT_RATE","vital_sign_value":"0","vital_sign_unit":"MDC_DIM_BEAT_PER_MIN","acq_timestamp":1666277450000,"time_slot":null,"record_timestamp":null,"userId":null},{"ts":"2023-04-13 22:32:38.22446","id":null,"device_no":"00","patientId":null,"vital_sign_name":"MDC_ECG_HEART_RATE","vital_sign_value":"95","vital_sign_unit":"MDC_DIM_BEAT_PER_MIN","acq_timestamp":1666277450000,"time_slot":null,"record_timestamp":null,"userId":null}]"#;
+        let name = "字\\'符\\'串";
+        let vaules = vec![
             Value::I64(10),
             Value::String(name.to_string()),
             Value::U32(32),
             Value::Bool(false),
-            Value::Ext("Timestamp",Box::new(Value::I64(1677859610000))),
+            Value::Ext("Timestamp", Box::new(Value::I64(1677859610000))),
             Value::Ext("Date", Box::new(Value::String("2023-03-20".to_string()))),
             // Value::from(Date::from_str("2023-03-20").unwrap()),
             Value::Ext("DateTime", Box::new(Value::String(fastdate::DateTime::now().to_string()))),
@@ -277,8 +275,8 @@ mod test{
             Value::Ext("Time", Box::new(Value::String("15:04:05.999999999".to_string()))),
             // Value::from(rbdc::types::time::Time::from_str("15:04:05.999999999").unwrap()),
         ];
-        sql=sql_replacen(sql,vaules);
+        sql = sql_replacen(sql, vaules);
         // sql=sql.replace("\"","'");
-        println!("{}",sql);
+        println!("{}", sql);
     }
 }

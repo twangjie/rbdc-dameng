@@ -1,10 +1,12 @@
+use std::sync::{Arc, Mutex, RwLock};
+
+use crossbeam_queue::ArrayQueue;
+pub use odbc_api::*;
+use tokio::task;
+
 use crate::pool::connection::ODBCConnection;
 use crate::pool::errors::OdbcError;
 use crate::pool::manager::ENV;
-use crossbeam_queue::ArrayQueue;
-pub use odbc_api::*;
-use std::sync::{Arc, Mutex, RwLock};
-use tokio::task;
 
 pub(crate) struct SharedPool {
     pub(crate) pool: Mutex<ArrayQueue<Connection<'static>>>,
@@ -43,6 +45,6 @@ impl SharedPool {
 
             Ok(ODBCConnection::new(Arc::clone(&self), conn))
         })
-        .await?
+            .await?
     }
 }

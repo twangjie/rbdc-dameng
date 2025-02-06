@@ -5,7 +5,7 @@ use log::{info, LevelFilter};
 use rbatis::{crud, DefaultPool, impl_delete, impl_select, impl_select_page, impl_update, PageRequest, RBatis};
 use rbatis::intercept_log::LogInterceptor;
 use rbatis::intercept_page::PageIntercept;
-use rbdc_dameng::driver::DamengDriver;
+use rbdc_dameng::driver::{DamengDriver, OdbcDriver};
 use rbs::Value;
 use rbdc::db::{Connection, Driver};
 use rbdc::Error;
@@ -53,34 +53,15 @@ async fn main() -> Result<(), Error> {
     let mut start_time = Instant::now();
     let mut begin_tme = start_time.clone();
 
-    /// connect to database
-    // sqlite
-    // rb.init(SqliteDriver {}, "sqlite://target/sqlite.db").unwrap();
-    // mysql
-    // rb.init(MysqlDriver{},"Driver={MySQL ODBC 9.1 Unicode Driver};Server=127.0.0.1;port=3306;UID=root;PASSWORD=rootroot;database=test").unwrap();
-    // postgresql
-    // rb.init(PgDriver{},"postgres://postgres:123456@localhost:5432/postgres").unwrap();
-    // mssql/sqlserver
-    // rb.init(MssqlDriver{},"jdbc:sqlserver://localhost:1433;User=SA;Password={TestPass!123456};Database=test").unwrap();
-
-    // let pool = FastPool::new(ConnManager::new(DamengDriver {}, connection_string)?)?;
-
-    // let connection_string = "mysql://root:Azsy12345.@192.168.50.253:3306/azcms";
-    // // let pool = FastPool::new(ConnManager::new(MysqlDriver {}, connection_string)?)?;
-    // rb.init(MysqlDriver {}, connection_string).unwrap();
-
-    let mut connection_string = "Driver={DM8 ODBC Driver};Server=192.168.50.96:30236;UID=SYSDBA;PWD=SYSDBA001;CHARACTER_CODE=PG_UTF8;SCHEMA=test";
-    // let mut connection_string = "Driver={MySQL ODBC 9.1 Unicode Driver};Server=192.168.50.253;port=3306;UID=root;PASSWORD=Azsy12345.;database=test";
+    let mut connection_string = "odbc://SYSDBA:SYSDBA001@192.168.50.96:30236/test?CHARACTER_CODE=PG_UTF8&odbc_driver=DM8 ODBC Driver";
+    let mut connection_string = "dameng://SYSDBA:SYSDBA001@192.168.50.96:30236/test?CHARACTER_CODE=PG_UTF8";
+    // let mut connection_string = "Driver={DM8 ODBC Driver};Server=192.168.50.96:30236;UID=SYSDBA;PWD=SYSDBA001;CHARACTER_CODE=PG_UTF8;SCHEMA=test";
     // let mut connection_string = "Driver={MySQL ODBC 9.1 Unicode Driver};Server=127.0.0.1;port=3306;UID=root;PASSWORD=rootroot;database=test";
 
     // 从命令行第一个参数获取 connection_string
     let binding = std::env::args().nth(1).unwrap_or(connection_string.to_string());
     connection_string = &*binding;
 
-    // let rb = RBatis::new();
-    // rb.init(DamengDriver {}, connection_string).unwrap();
-
-    // let pool = DefaultPool::new(ConnManager::new(DamengDriver {}, connection_string)?)?;
     let pool = FastPool::new(ConnManager::new(DamengDriver {}, connection_string)?)?;
     pool.set_max_open_conns(4).await;
     pool.set_max_idle_conns(4).await;
