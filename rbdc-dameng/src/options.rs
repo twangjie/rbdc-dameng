@@ -1,8 +1,7 @@
 use anyhow::anyhow;
-use clap::ValueHint::Url;
 use futures_core::future::BoxFuture;
 use log::info;
-use rbdc::db::{Connection, ConnectOptions};
+use rbdc::db::{ConnectOptions, Connection};
 use rbdc::Error;
 use serde::{Deserialize, Serialize};
 

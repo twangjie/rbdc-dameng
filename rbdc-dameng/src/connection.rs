@@ -1,29 +1,22 @@
 use std::collections::HashMap;
-use std::io::Write;
-use std::num::{NonZero, NonZeroUsize};
+use std::num::NonZeroUsize;
 use std::sync::{Arc, Mutex};
 
 use anyhow::anyhow;
 use futures_core::future::BoxFuture;
-use futures_util::FutureExt;
 use log::info;
-use odbc_api::{ColumnDescription, Cursor, Environment, IntoParameter, Nullability, Prepared, ResultSetMetadata};
-use odbc_api::buffers::{BufferDesc, ColumnarAnyBuffer, RowVec, TextRowSet};
+use odbc_api::buffers::{BufferDesc, TextRowSet};
 use odbc_api::Connection as OdbcApiConnection;
 use odbc_api::ConnectionOptions;
-use odbc_api::handles::{ParameterDescription, StatementImpl};
-use odbc_api::parameter::VarCharArray;
+use odbc_api::{Cursor, Environment, Nullability, ResultSetMetadata};
 use once_cell::sync::Lazy;
 use rbdc::db::{Connection, ExecResult, Row};
 use rbdc::Error;
-use rbdc::pool::conn_manager::ConnManager;
 use rbs::Value;
 
-use crate::{DamengColumn, DamengData, DamengRow};
-use crate::common::data_type::DmDataType;
-use crate::driver::DamengDriver;
-use crate::encode::{Encode, sql_replacen};
+use crate::encode::{sql_replacen, Encode};
 use crate::options::DamengConnectOptions;
+use crate::{DamengColumn, DamengData, DamengRow};
 
 static ENV: Lazy<Environment> = Lazy::new(|| Environment::new().unwrap());
 
@@ -90,13 +83,13 @@ impl Connection for DamengConnection {
 
                 for index in 1..=cursor.num_result_cols().unwrap_or(0) {
                     cursor.describe_col(index as u16, &mut column_description)
-                        .map_err(|err| anyhow!("describe_col err")).unwrap();
+                        .map_err(|_err| anyhow!("describe_col err")).unwrap();
 
                     let nullable = matches!(
                         column_description.nullability,
                         Nullability::Unknown | Nullability::Nullable
                     );
-                    let desc = BufferDesc::from_data_type(
+                    let _desc = BufferDesc::from_data_type(
                         column_description.data_type,
                         nullable,
                     ).unwrap_or(BufferDesc::Text { max_str_len: 255 });
@@ -118,14 +111,14 @@ impl Connection for DamengConnection {
 
                 let mut buffer = match TextRowSet::from_max_str_lens(columns.len(), max_str_lens) {
                     Ok(buffers) => buffers,
-                    Err(err) => { return Err(rbdc::Error::from("TextRowSet::for_cursor() err")); }
+                    Err(_err) => { return Err(rbdc::Error::from("TextRowSet::for_cursor() err")); }
                 };
 
                 let mut row_set_cursor = match cursor.bind_buffer(&mut buffer) {
                     Ok(block_cursor) => block_cursor,
-                    Err(err) => { return Err(rbdc::Error::from("cursor.bind_buffer() err")); }
+                    Err(_err) => { return Err(rbdc::Error::from("cursor.bind_buffer() err")); }
                 };
-                let mut num_batch = 0;
+                // let mut num_batch = 0;
 
                 // let mut results = vec![];
 
@@ -133,7 +126,7 @@ impl Connection for DamengConnection {
                     .fetch_with_truncation_check(false)
                     .map_err(|error| provide_context_for_truncation_error(error, &mut columns)).unwrap()
                 {
-                    num_batch += 1;
+                    // num_batch += 1;
                     //info!(  "Fetched batch {} with {} rows.", num_batch,  buffer.num_rows() );
 
                     for row_index in 0..buffer.num_rows() {
@@ -190,15 +183,15 @@ impl Connection for DamengConnection {
 
             if sql == "begin" {
                 *trans = true;
-                conn.set_autocommit(false);
+                let _ = conn.set_autocommit(false);
                 Ok(ExecResult {
                     rows_affected: 0,
                     last_insert_id: Value::Null,
                 })
             } else if sql == "commit" {
                 // manager.aquire().await.unwrap().commit().unwrap();
-                conn.commit();
-                conn.set_autocommit(true);
+                let _ = conn.commit();
+                let _ = conn.set_autocommit(true);
                 *trans = false;
                 Ok(ExecResult {
                     rows_affected: 0,
@@ -206,7 +199,7 @@ impl Connection for DamengConnection {
                 })
             } else if sql == "rollback" {
                 conn.rollback().unwrap();
-                conn.set_autocommit(true);
+                let _ = conn.set_autocommit(true);
                 *trans = false;
                 Ok(ExecResult {
                     rows_affected: 0,
@@ -257,7 +250,8 @@ impl Connection for DamengConnection {
     }
 
     fn close(&mut self) -> BoxFuture<Result<(), rbdc::Error>> {
-        let oc = self.clone();
+        let _oc = self.clone();
+
         let task = tokio::task::spawn_blocking(move || {
 
             // manager.aquire().await.unwrap().commit().map_err(|e| Error::from(e.to_string()))?;

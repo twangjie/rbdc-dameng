@@ -23,7 +23,7 @@ impl Decode for Value {
             return Ok(Value::Null);
         }
 
-        let mut value;
+        let value;
 
         match &row.data {
             Some(data) => {
@@ -125,7 +125,7 @@ impl Decode for Value {
                 // return Ok(Value::from(a));
                 return Ok(Value::Ext("Date", Box::new(Value::I64(a.unix_timestamp_millis()))));
             }
-            DmDataType::Time { precision } => {
+            DmDataType::Time { precision: _ } => {
                 // let date=FastDateTime::from_str(&value).unwrap().unix_timestamp_millis();
                 //  let timestamp=Timestamp::from_str(&value).unwrap();
                 //  // let tv=TV::new("Timestamp",Value::I64(date));
@@ -136,7 +136,7 @@ impl Decode for Value {
                 // let datetime=DateTime::from_str(&value).unwrap();
                 // return Ok(Value::from(datetime));
             }
-            DmDataType::Timestamp { precision } => {
+            DmDataType::Timestamp { precision: _ } => {
                 // let date=FastDateTime::from_str(&value).unwrap().unix_timestamp_millis();
                 //  let timestamp=Timestamp::from_str(&value).unwrap();
                 //  // let tv=TV::new("Timestamp",Value::I64(date));

@@ -14,20 +14,20 @@ pub trait Encode {
 }
 
 impl Encode for Value {
-    fn encode(self, idx: usize) -> Result<String, Error> {
+    fn encode(self, _idx: usize) -> Result<String, Error> {
         // let idx = idx + 1;//oracle is one-based
 
         match self {
             Value::Ext(t, v) => match t {
                 "Date" => {
                     let s = v.as_str().unwrap_or_default();
-                    let d = chrono::NaiveDate::parse_from_str(s, "%Y-%m-%d").unwrap();
+                    let _d = chrono::NaiveDate::parse_from_str(s, "%Y-%m-%d").unwrap();
                     // statement.bind(idx, &d).map_err(|e| e.to_string())?
                     return Ok(s.to_string());
                 }
                 "DateTime" => {
                     let s = v.as_str().unwrap_or_default();
-                    let d = chrono::NaiveDateTime::parse_from_str(s, "%Y-%m-%dT%H:%M:%S%z").unwrap();
+                    let _d = chrono::NaiveDateTime::parse_from_str(s, "%Y-%m-%dT%H:%M:%S%z").unwrap();
                     // statement.bind(idx, &d).map_err(|e| e.to_string())?
                     return Ok(s.to_string());
                 }
@@ -87,7 +87,7 @@ impl Encode for Value {
                 // statement.bind(idx, &double).map_err(|e| e.to_string())?
                 return Ok(double.to_string());
             }
-            Value::Binary(bin) => {
+            Value::Binary(_bin) => {
                 // statement.bind(idx, &bin).map_err(|e| e.to_string())?
                 return Err(Error::from("unimpl"));
             }
@@ -242,7 +242,7 @@ mod test {
     // use taos::ColumnView;
     use crate::encode::sql_replacen;
 
-// use crate::encode::Encode;
+    // use crate::encode::Encode;
 
     #[test]
     fn test_value() {

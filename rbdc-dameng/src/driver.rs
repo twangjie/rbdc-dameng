@@ -1,7 +1,7 @@
 use futures_core::future::BoxFuture;
-use rbdc::{Error, impl_exchange};
-use rbdc::db::{Connection, ConnectOptions};
+use rbdc::db::{ConnectOptions, Connection};
 use rbdc::db::{Driver, Placeholder};
+use rbdc::{impl_exchange, Error};
 
 use crate::connection::DamengConnection;
 use crate::options::DamengConnectOptions;

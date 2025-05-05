@@ -9,7 +9,7 @@ use rbdc_dameng::driver::{DamengDriver, OdbcDriver};
 use rbs::Value;
 use rbdc::db::{Connection, Driver};
 use rbdc::Error;
-use rbdc::pool::conn_manager::ConnManager;
+use rbdc::pool::ConnectionManager;
 use rbdc::pool::Pool;
 use rbdc_mysql::MysqlDriver;
 use rbdc_pool_fast::FastPool;
@@ -62,7 +62,7 @@ async fn main() -> Result<(), Error> {
     let binding = std::env::args().nth(1).unwrap_or(connection_string.to_string());
     connection_string = &*binding;
 
-    let pool = FastPool::new(ConnManager::new(DamengDriver {}, connection_string)?)?;
+    let pool = FastPool::new(ConnectionManager::new(DamengDriver {}, connection_string)?)?;
     pool.set_max_open_conns(4).await;
     pool.set_max_idle_conns(4).await;
 
