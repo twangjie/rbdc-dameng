@@ -21,13 +21,13 @@ impl Encode for Value {
             Value::Ext(t, v) => match t {
                 "Date" => {
                     let s = v.as_str().unwrap_or_default();
-                    let _d = chrono::NaiveDate::parse_from_str(s, "%Y-%m-%d").unwrap();
+                    // let _d = chrono::NaiveDate::parse_from_str(s, "%Y-%m-%d").unwrap();
                     // statement.bind(idx, &d).map_err(|e| e.to_string())?
                     return Ok(s.to_string());
                 }
                 "DateTime" => {
                     let s = v.as_str().unwrap_or_default();
-                    let _d = chrono::NaiveDateTime::parse_from_str(s, "%Y-%m-%dT%H:%M:%S%z").unwrap();
+                    // let _d = chrono::NaiveDateTime::parse_from_str(s, "%Y-%m-%dT%H:%M:%S%z").unwrap();
                     // statement.bind(idx, &d).map_err(|e| e.to_string())?
                     return Ok(s.to_string());
                 }
@@ -93,7 +93,25 @@ impl Encode for Value {
             }
             Value::Null => {
                 // statement.bind(idx, &Option::<String>::None).unwrap();
-                return Ok("".to_string());
+                return Ok("NULL".to_string());
+            }
+            Value::Array(arr) => {
+
+                if arr.is_empty() {
+                    return Ok("[]".to_string());
+                }
+
+                let s = serde_json::to_string(&arr).unwrap();
+                return Ok(s);
+            }
+            Value::Map(arr) => {
+
+                if arr.is_empty() {
+                    return Ok("{}".to_string());
+                }
+
+                let s = serde_json::to_string(&arr).unwrap();
+                return Ok(s);
             }
             //TODO: more types!
             _ => {
@@ -105,6 +123,14 @@ impl Encode for Value {
     }
 }
 
+fn value_to_json_string(val: &Value) -> String {
+    let s = match val {
+        Value::Null => "NULL".to_string(), // 或者根据类型自行处理
+        _ => serde_json::to_string(val).unwrap(),
+    };
+    // 转为 ODBC 支持的字符串参数
+    s
+}
 
 /// 将sql 语名中的 ？ 替换 为Value 中的值
 pub fn sql_replacen(mut sql: String, params: Vec<Value>) -> String {
@@ -150,7 +176,14 @@ pub fn sql_replacen(mut sql: String, params: Vec<Value>) -> String {
                 // sql = sql.replace("\"", "'");
             }
             // Value::Binary(_) => {}
-            // Value::Array(_) => {}
+            Value::Array(_) => {
+                // 转成json字符串
+                let json_str =  serde_json::to_string(&v).unwrap_or_default();
+                let quoted_json = format!("'{}'", json_str); // 加上单引号
+                
+                sql = sql.replacen("?", quoted_json.as_str(), 1);
+
+            }
             // Value::Map(_) => {}
             Value::Ext(name, ext_v) => {
                 if name.eq("Timestamp") {

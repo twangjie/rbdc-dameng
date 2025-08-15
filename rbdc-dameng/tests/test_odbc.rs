@@ -6,11 +6,50 @@ mod test {
     use serde::{Deserialize, Serialize};
     use std::fs;
     use std::ops::Deref;
+    use odbc_api::parameter::{InputParameter, VarCharSlice};
     use rbdc::db::Driver;
+    use rbs::Error;
     use tokio::runtime::Runtime;
     use rbdc_dameng::connection::DamengConnection;
     use rbdc_dameng::DamengDriver;
     use rbdc_dameng::options::DamengConnectOptions;
+
+    #[test]
+    fn test_mysql_odbc() {
+
+        let env = Environment::new().unwrap();
+
+        let connection_string
+            = "Driver={MySQL ODBC 9.4 Unicode Driver};Server=127.0.0.1;UID=root;PWD=rootroot;database=az_watermark;CHARSET=utf8mb4;";
+
+        let conn = env
+            .connect_with_connection_string(&connection_string, ConnectionOptions::default())
+            .unwrap();
+
+        let json_str = r#"[{"key":"key1","value":"value1","desc":"中文"}]"#;
+
+        // let odbc_params: Vec<Box<dyn InputParameter>> = ["test", "测试", json_str]
+        //     .iter()
+        //     .map(|s| s.into_parameter()) // 或者 s.clone().into_parameter()
+        //     .map(|p| Box::new(p) as Box<dyn InputParameter>)
+        //     .collect();
+
+        let odbc_params: Vec<Box<dyn InputParameter>> = vec![
+            Box::new("test".into_parameter()),
+            Box::new("测试".into_parameter()),       // UNICODE版本的驱动， UTF-16，中文没问题
+            Box::new(VarCharSlice::new(json_str.as_bytes())), // JSON 用 UTF-8
+        ];
+
+        conn.execute("DELETE FROM watermark_template WHERE id = ?", odbc_params.as_slice(), None).unwrap();
+
+        conn.execute(
+            "INSERT INTO watermark_template (id, name, variables) VALUES (?, ?, ?)",
+            odbc_params.as_slice(),
+            None
+        ).unwrap();
+
+        println!("insert success");
+    }
 
     #[test]
     fn test_dm_odbc()   {
@@ -33,7 +72,7 @@ mod test {
         // let cursor_impl = conn.execute(&config.sql, &params[..]).unwrap().unwrap();
         // cursor_impl.print_all_tables().unwrap();
 
-        if let Ok(Some(mut cursor)) = conn.execute(&sql, &params[..]) {
+        if let Ok(Some(mut cursor)) = conn.execute(&sql, &params[..], None) {
             info!("execute time: {:?}", start_time.elapsed());
 
             for (i) in 1..cursor.num_result_cols().unwrap_or(0) {

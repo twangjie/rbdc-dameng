@@ -33,7 +33,7 @@ impl ConnectOptions for DamengConnectOptions {
 impl Default for DamengConnectOptions {
     fn default() -> Self {
         Self {
-            connection_string: "{DM8 ODBC Driver};Server=192.168.50.96:30236;UID=SYSDBA;PWD=SYSDBA001;CHARACTER_CODE=PG_UTF8;".to_owned(),
+            connection_string: "{DM8 ODBC Driver};Server=127.0.01:30236;UID=SYSDBA;PWD=SYSDBA001;CHARACTER_CODE=PG_UTF8;".to_owned(),
             batch_size: 100,
             max_str_len: Some(65536),
         }
@@ -45,7 +45,7 @@ impl DamengConnectOptions {
         // serde_json::from_str(s).map_err(|e| Error::from(e.to_string()))
 
         // dameng://localhost:5236?user=SYSDBA&password=123456789&SCHEMA=test
-        // {DM8 ODBC Driver};Server=192.168.50.96:30236;UID=SYSDBA;PWD=SYSDBA001;CHARACTER_CODE=PG_UTF8;SCHEMA=test;
+        // {DM8 ODBC Driver};Server=127.0.0.1:30236;UID=SYSDBA;PWD=SYSDBA001;CHARACTER_CODE=PG_UTF8;SCHEMA=test;
 
         let mut connectiong_string = s.to_owned();
 

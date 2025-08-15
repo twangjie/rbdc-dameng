@@ -1,12 +1,11 @@
 use std::str::FromStr;
 
+use crate::common::data_type::DmDataType;
+use crate::DamengData;
 use bigdecimal::BigDecimal;
 use odbc_api::sys::SqlDataType;
 use rbdc::{datetime::DateTime, Error};
 use rbs::Value;
-
-use crate::common::data_type::DmDataType;
-use crate::DamengData;
 
 pub trait Decode {
     fn decode(row: &DamengData) -> Result<Value, Error>;
@@ -28,6 +27,10 @@ impl Decode for Value {
         match &row.data {
             Some(data) => {
                 value = String::from_utf8(data.to_vec()).unwrap_or_default();
+                // // 处理空数组的情况
+                // if value.trim() == "[]" {
+                //     return Ok(Value::Array(vec![]));
+                // }
             }
             None => {
                 value = "".to_string();
@@ -90,6 +93,10 @@ impl Decode for Value {
                     Ok(Value::F32(a))
                 };
             }
+            DmDataType::Double  => {
+                let a = value.parse::<f64>()?;
+                return Ok(Value::F64(a));
+            }
             DmDataType::Binary { length: _ } => {
                 if let Some(a) = &row.data {
                     return Ok(Value::Binary(a.clone()));
@@ -102,9 +109,6 @@ impl Decode for Value {
                 }
                 return Ok(Value::Null);
             }
-            // DmDataType::CLOB => {
-            //     return Ok(Value::String(value))
-            // }
             DmDataType::Char { length: _ } => {
                 return Ok(Value::String(value));
             }
@@ -117,9 +121,12 @@ impl Decode for Value {
             DmDataType::WVarchar { length: _ } => {
                 return Ok(Value::String(value));
             }
-            DmDataType::LongVarchar { length: _ } => {
-                return Ok(Value::String(value));
-            }
+            // DmDataType::CLOB => {
+            //     return Ok(Value::String(value))
+            // }
+            // DmDataType::LongVarchar { length: _ } => {
+            //     return Ok(Value::String(value));
+            // }
             DmDataType::Date => {
                 let a = DateTime::from_str(&value)?;
                 // return Ok(Value::from(a));
@@ -179,11 +186,55 @@ impl Decode for Value {
                 };
             }
             _ => {
-                return Err(Error::from(format!("Unsupported type: {:?}", row.column_type)));
-                // if row.data.as_ref().is_some() {
+                // return Err(Error::from(format!("Unsupported type: {:?}", row.column_type)));
+                return Ok(Value::String(value));
+                // if !value.is_empty() {
+                //     // 处理空数组的情况
+                //     match value.trim() {
+                //         "null" | "NULL" => {
+                //             return Ok(Value::Null);
+                //         }
+                //         "[]" => {
+                //             return Ok(Value::Array(vec![]));
+                //         }
+                //         "{}" => {
+                //             return Ok(Value::Map(ValueMap::new()));
+                //         }
+                //         _ => {
+                //             // return Ok("".to_string().into());
+                //         }
+                //     }
+                // 
+                //     if value.trim().starts_with("[") {
+                //         let value = value.trim();
+                // 
+                //         match serde_json::from_str::<Value>(&value) {
+                //             Ok(map) => {
+                //                 return Ok(map);
+                //             }
+                //             Err(_) => {
+                //                 return Ok("".to_string().into());
+                //             }
+                //         }
+                //     }
+                // 
+                //     if value.trim().starts_with("{") {
+                //         let value = value.trim();
+                //         match serde_json::from_str::<Value>(&value) {
+                //             Ok(map) => {
+                //                 return Ok(map);
+                //             }
+                //             Err(_) => {
+                //                 return Ok("".to_string().into());
+                //             }
+                //         }
+                //     }
                 //     return Ok(Value::String(value));
+                // 
+                // 
+                // } else {
+                //     return Ok("".to_string().into());
                 // }
-                // return Ok(Value::Null);
             }
         };
     }

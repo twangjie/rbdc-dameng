@@ -4,10 +4,10 @@ use std::sync::{Arc, Mutex};
 
 use anyhow::anyhow;
 use futures_core::future::BoxFuture;
-use log::info;
 use odbc_api::buffers::{BufferDesc, TextRowSet};
-use odbc_api::Connection as OdbcApiConnection;
+use odbc_api::parameter::{InputParameter, VarCharBox, VarWCharBox};
 use odbc_api::ConnectionOptions;
+use odbc_api::{Connection as OdbcApiConnection, IntoParameter};
 use odbc_api::{Cursor, Environment, Nullability, ResultSetMetadata};
 use once_cell::sync::Lazy;
 use rbdc::db::{Connection, ExecResult, Row};
@@ -45,36 +45,41 @@ impl Connection for DamengConnection {
                 log::warn!("不支持事务相关操作,直接返回");
                 return Err(rbdc::Error::from("不支持事务相关操作"));
             }
+            // Execute the query as a one off, and pass the parameters.
+            let binding = oc.conn.clone();
+            let conn = binding.lock().map_err(|_err| Error::from(_err.to_string()))?;
 
             let mut results = Vec::new();
 
-            let mut encoded_params: Vec<_> = vec![];
+            let mut encoded_params: Vec<String> = vec![];
             for x in &params {
                 // encoded_params.push(x.encode(0)?) ;
                 encoded_params.push(x.clone().encode(0)?);
-            }
-            log::debug!("encoded_params: {:?}",encoded_params);
 
-            // let sql_before_encode = sql.clone();
-            // let encoded_params = ["10", "20"];
+                // encoded_params.push(value_to_json_string(x));
+            }
+            // log::debug!("encoded_params: {:?}",encoded_params);
 
             // 执行查询
-            // FIXME: 需要检查是否有 sql注入风险 ？
-            sql = sql_replacen(sql, params);
             log::debug!("get_rows执行的sql:{}",sql);
-            // println!("将要执行的sql:{}", sql);
 
-            // Convert the input strings into parameters suitable to for use with ODBC.
-            // let params: Vec<_> = params
+            // // Convert the input strings into parameters suitable to for use with ODBC.
+            // let params: Vec<_> = encoded_params
             //     .iter()
             //     .map(|param| param.as_str().into_parameter())
             //     .collect();
 
-            // Execute the query as a one off, and pass the parameters.
-            let binding = oc.conn.clone();
-            let binding = binding.lock().unwrap();
+            let odbc_params: Vec<Box<dyn InputParameter>> = encoded_params
+                .iter()
+                .map(|s| s.as_str().into_parameter()) // 或者 s.clone().into_parameter()
+                .map(|p| Box::new(p) as Box<dyn InputParameter>)
+                .collect();
 
-            if let Ok(Some(mut cursor)) = binding.execute(&sql, ()) {
+            let mut stmt = conn.prepare(&sql)
+                .map_err(|_err| Error::from(_err.to_string()))?;
+
+            // if let Ok(Some(mut cursor)) = conn.execute(&sql, odbc_params.as_slice(), None) {
+            if let Ok(Some(mut cursor)) = stmt.execute(odbc_params.as_slice()) {
                 let mut columns: Vec<DamengColumn> = vec![];
 
                 let mut max_str_lens: Vec<usize> = vec![];
@@ -83,7 +88,7 @@ impl Connection for DamengConnection {
 
                 for index in 1..=cursor.num_result_cols().unwrap_or(0) {
                     cursor.describe_col(index as u16, &mut column_description)
-                        .map_err(|_err| anyhow!("describe_col err")).unwrap();
+                        .map_err(|_err| Error::from(_err.to_string()))?;
 
                     let nullable = matches!(
                         column_description.nullability,
@@ -118,13 +123,11 @@ impl Connection for DamengConnection {
                     Ok(block_cursor) => block_cursor,
                     Err(_err) => { return Err(rbdc::Error::from("cursor.bind_buffer() err")); }
                 };
-                // let mut num_batch = 0;
-
-                // let mut results = vec![];
 
                 while let Some(buffer) = row_set_cursor
                     .fetch_with_truncation_check(false)
-                    .map_err(|error| provide_context_for_truncation_error(error, &mut columns)).unwrap()
+                    .map_err(|error| provide_context_for_truncation_error(error, &mut columns))
+                    .map_err(|e| Error::from(e.to_string()))?
                 {
                     // num_batch += 1;
                     //info!(  "Fetched batch {} with {} rows.", num_batch,  buffer.num_rows() );
@@ -171,6 +174,7 @@ impl Connection for DamengConnection {
         })
     }
 
+
     fn exec(&mut self, sql: &str, params: Vec<Value>) -> BoxFuture<Result<ExecResult, Error>> {
         let oc = self.clone();
         let sql = sql.to_string();
@@ -184,42 +188,46 @@ impl Connection for DamengConnection {
             if sql == "begin" {
                 *trans = true;
                 let _ = conn.set_autocommit(false);
-                Ok(ExecResult {
-                    rows_affected: 0,
-                    last_insert_id: Value::Null,
-                })
+                Ok(ExecResult { rows_affected: 0, last_insert_id: Value::Null })
             } else if sql == "commit" {
                 // manager.aquire().await.unwrap().commit().unwrap();
-                let _ = conn.commit();
+                let _ = conn.commit().map_err(|e| Error::from(e.to_string()))?;
                 let _ = conn.set_autocommit(true);
                 *trans = false;
-                Ok(ExecResult {
-                    rows_affected: 0,
-                    last_insert_id: Value::Null,
-                })
+                Ok(ExecResult { rows_affected: 0, last_insert_id: Value::Null })
             } else if sql == "rollback" {
-                conn.rollback().unwrap();
+                conn.rollback().map_err(|e| Error::from(e.to_string()))?;
+
                 let _ = conn.set_autocommit(true);
                 *trans = false;
-                Ok(ExecResult {
-                    rows_affected: 0,
-                    last_insert_id: Value::Null,
-                })
+                Ok(ExecResult { rows_affected: 0, last_insert_id: Value::Null })
             } else {
-                let mut sql = sql.to_string();
-                // FIXME: 需要检查是否有 sql注入风险 ？
-                sql = sql_replacen(sql, params);
-                log::debug!("exec执行的sql:{}",sql);
-                // println!("将要执行的sql:{}", sql);
+                
+                // if sql.to_lowercase().starts_with("insert into") {
+                //     // 获取表名
+                //     let table_name = sql.split_whitespace().nth(2).unwrap();
+                //     conn.execute(format!("set IDENTITY_INSERT {} ON", table_name).as_str(), (), None);
+                // }
+
+                let mut encoded_params: Vec<String> = vec![];
+                for x in &params {
+                    // encoded_params.push(x.encode(0)?) ;
+                    encoded_params.push(x.clone().encode(0)?);
+                    // encoded_params.push(value_to_json_string(x));
+                }
+                // log::debug!("encoded_params: {:?}",encoded_params);
+
+                let odbc_params: Vec<Box<dyn InputParameter>> = encoded_params
+                    .iter()
+                    .map(|s| s.as_str().into_parameter()) // 或者 s.clone().into_parameter()
+                    .map(|p| Box::new(p) as Box<dyn InputParameter>)
+                    .collect();
 
                 let mut prepared = conn.prepare(&sql)
                     .map_err(|e| Error::from(e.to_string()))?;
-                prepared.execute(()).map_err(|e| Error::from(e.to_string()))?;
+                prepared.execute(odbc_params.as_slice()).map_err(|e| Error::from(e.to_string()))?;
                 let rows_affected = prepared.row_count().unwrap().unwrap_or(0);
-                Ok(ExecResult {
-                    rows_affected: rows_affected as u64,
-                    last_insert_id: Value::Null,
-                })
+                Ok(ExecResult { rows_affected: rows_affected as u64, last_insert_id: Value::Null })
             }
         });
         Box::pin(async {
@@ -232,7 +240,7 @@ impl Connection for DamengConnection {
         let task = tokio::task::spawn_blocking(move || {
             let binding = oc.conn.clone();
             let binding = binding.lock().unwrap();
-            let x = match binding.execute("SELECT 1", ()) {
+            let x = match binding.execute("SELECT 1", (), None) {
                 Err(e) => {
                     // if let Some(odbc_api::Error::TooLargeValueForBuffer {
                     // rbdc::Error::from(e)
@@ -333,21 +341,21 @@ impl DamengConnection {
         }
 
         let sys_info = conn.database_management_system_name().unwrap_or_default();
-        info!("sysInfo: {}", sys_info);
+        log::debug!("sysInfo: {}", sys_info);
 
         if let Some(database) = schema {
             if sys_info == "DM DATABASE MANAGEMENT SYSTEM" || sys_info == "达梦数据库管理系统"
                 || sys_info.contains("DM8") || sys_info.contains("DM") {
                 let query = format!("set schema {}", database);
 
-                match conn.execute(query.as_str(), ()) { // 执行 USE azcms; 语句
+                match conn.execute(query.as_str(), (), None) { // 执行 USE azcms; 语句
                     Ok(_) => log::debug!("set schema {} 成功", database),
                     Err(e) => log::debug!("set schema {} 失败: {}", database, e),
                 }
             } else {
                 let query = format!("USE {}", database);
 
-                match conn.execute(query.as_str(), ()) { // 执行 USE azcms; 语句
+                match conn.execute(query.as_str(), (), None) { // 执行 USE azcms; 语句
                     Ok(_) => log::debug!("USE {} 成功", database),
                     Err(e) => log::debug!("USE {} 失败: {}", database, e),
                 }
