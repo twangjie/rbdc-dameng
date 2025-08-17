@@ -1,20 +1,20 @@
 use std::collections::HashMap;
 use std::num::NonZeroUsize;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, MutexGuard};
 
 use anyhow::anyhow;
 use futures_core::future::BoxFuture;
 use odbc_api::buffers::{BufferDesc, TextRowSet};
-use odbc_api::parameter::{InputParameter, VarCharBox, VarWCharBox};
-use odbc_api::ConnectionOptions;
+use odbc_api::parameter::InputParameter;
 use odbc_api::{Connection as OdbcApiConnection, IntoParameter};
+use odbc_api::{ConnectionOptions, Nullable};
 use odbc_api::{Cursor, Environment, Nullability, ResultSetMetadata};
 use once_cell::sync::Lazy;
 use rbdc::db::{Connection, ExecResult, Row};
 use rbdc::Error;
 use rbs::Value;
 
-use crate::encode::{sql_replacen, Encode};
+use crate::encode::Encode;
 use crate::options::DamengConnectOptions;
 use crate::{DamengColumn, DamengData, DamengRow};
 
@@ -36,7 +36,7 @@ unsafe impl Sync for DamengConnection {}
 impl Connection for DamengConnection {
     fn get_rows(&mut self, sql: &str, params: Vec<Value>) -> BoxFuture<Result<Vec<Box<dyn Row>>, Error>> {
         let oc = self.clone();
-        let mut sql = sql.to_string();
+        let sql = sql.to_string();
 
         let nz_max_str_len = NonZeroUsize::new(self.max_str_len.unwrap_or(0)).unwrap();
 
@@ -202,13 +202,7 @@ impl Connection for DamengConnection {
                 *trans = false;
                 Ok(ExecResult { rows_affected: 0, last_insert_id: Value::Null })
             } else {
-                
-                // if sql.to_lowercase().starts_with("insert into") {
-                //     // 获取表名
-                //     let table_name = sql.split_whitespace().nth(2).unwrap();
-                //     conn.execute(format!("set IDENTITY_INSERT {} ON", table_name).as_str(), (), None);
-                // }
-
+                 
                 let mut encoded_params: Vec<String> = vec![];
                 for x in &params {
                     // encoded_params.push(x.encode(0)?) ;
@@ -226,8 +220,25 @@ impl Connection for DamengConnection {
                 let mut prepared = conn.prepare(&sql)
                     .map_err(|e| Error::from(e.to_string()))?;
                 prepared.execute(odbc_params.as_slice()).map_err(|e| Error::from(e.to_string()))?;
-                let rows_affected = prepared.row_count().unwrap().unwrap_or(0);
-                Ok(ExecResult { rows_affected: rows_affected as u64, last_insert_id: Value::Null })
+
+                // let rows_affected = prepared.row_count().unwrap().unwrap_or(0);
+                let rows_affected = match prepared.row_count() {
+                    Ok(val) => {
+                        val.unwrap_or(0)
+                    }
+                    Err(_) => {0}
+                };
+
+                let mut last_insert_id = Default::default();
+                if sql.to_lowercase().starts_with("insert into") {
+                    // 获取last id
+                    // SELECT IDENT_CURRENT('PRODUCTION.PRODUCT');
+                    let table_name = sql.split_whitespace().nth(2).unwrap();
+
+                    last_insert_id = Self::get_last_insert_id(&conn, table_name).unwrap_or_default();
+                }
+
+                Ok(ExecResult { rows_affected: rows_affected as u64, last_insert_id })
             }
         });
         Box::pin(async {
@@ -390,4 +401,39 @@ impl DamengConnection {
 
         kv_pairs // 返回键值对集合
     }
+
+    fn get_last_insert_id(conn: &MutexGuard<OdbcApiConnection<'static>>, table_name: &str) -> Result<Value, rbdc::Error> {
+        // 达梦数据库获取最后插入ID的SQL语句
+        // let sql = format!("SELECT IDENT_CURRENT('') as last_id", table_name);
+        let sql = format!("SELECT max(id) as last_id FROM {} ", table_name);
+        
+        let x = match conn.execute(sql.as_str(), (), None) {
+            Err(e) => {
+                Err(rbdc::Error::from(e.to_string()))
+            }
+            Ok(Some(mut cursor)) => {
+                // 获取查询结果
+                if let Some(mut row) = cursor.next_row().map_err(|e| rbdc::Error::from(e.to_string()))? {
+                    // 获取第一列的值（last_id）
+                    let mut field = Nullable::<i64>::null();
+                    row.get_data(1, &mut field).map_err(|e| rbdc::Error::from(e.to_string()))?;
+
+                    if let Some(value) = field.as_opt() {
+                        // println!("Value: {}", value);
+                        Ok(Value::I64(*value))
+
+                    } else {
+                        Ok(Value::Null)
+                    }
+
+                } else {
+                    Ok(Value::Null)
+                }
+            }
+            _ => {
+                Ok(Value::Null)
+            }
+        }; x
+    }
+
 }

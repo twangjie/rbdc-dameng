@@ -10,6 +10,7 @@ use rbs::value;
 use serde::de::Visitor;
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 use std::fmt;
+use rbdc::db::Connection;
 use tokio::time::Instant;
 
 #[tokio::main]
@@ -18,7 +19,7 @@ async fn main() -> Result<(), Error> {
     fast_log::init(fast_log::Config::new().console().level(LevelFilter::Debug))
         .expect("rbatis init fail");
 
-    test1().await;
+    // test1().await;
 
     match test2().await {
         Ok(_) => println!("test2 completed successfully"),
@@ -204,13 +205,13 @@ async fn test2() -> Result<(), Error> {
     }
     crud!(Watermark {}); //crud = insert+select_by_column+update_by_column+delete_by_column
 
-    let mut start_time = Instant::now();
-    let mut begin_tme = start_time.clone();
+    let start_time = Instant::now();
 
     let mut connection_string = "odbc://SYSDBA:SYSDBA001@192.168.50.96:30236/az_watermark?CHARACTER_CODE=PG_UTF8&odbc_driver=DM8 ODBC Driver";
     let mut connection_string = "dameng://SYSDBA:SYSDBA001@192.168.50.96:30236/az_watermark?CHARACTER_CODE=PG_UTF8";
     // let mut connection_string = "Driver={DM8 ODBC Driver};Server=192.168.50.96:30236;UID=SYSDBA;PWD=SYSDBA001;CHARACTER_CODE=PG_UTF8;SCHEMA=test";
     // let mut connection_string = "Driver={MySQL ODBC 9.4 Unicode Driver};Server=127.0.0.1;port=3306;NO_BINARY_RESULT=1;UID=root;PASSWORD=rootroot;database=az_watermark;CHARSET=utf8mb4";
+
     // 从命令行第一个参数获取 connection_string
     let binding = std::env::args()
         .nth(1)
@@ -220,6 +221,12 @@ async fn test2() -> Result<(), Error> {
     let pool = FastPool::new(ConnectionManager::new(DamengDriver {}, connection_string)?)?;
     pool.set_max_open_conns(4).await;
     pool.set_max_idle_conns(4).await;
+
+    let params = vec![];
+    let mut value = pool.get().await?.get_rows("select now", params).await?;
+    if let Some(row) = value.first_mut() {
+        println!("current time: {}", row.get(0)?);
+    }
 
     let rb = RBatis::new(); // 包含 PageIntercept 分页插件
     rb.pool.set(Box::new(pool)).unwrap();
@@ -245,7 +252,8 @@ async fn test2() -> Result<(), Error> {
 
     let watermark_str = r#"{"id":0,"template_id":"test","name":"测试水印1","type":"text","position":{"left":15,"top":15},"opacity":1,"size":97,"extension":"{\"color\":\"ff0000\",\"content\":\"文本水印\",\"rotation\":0,\"tile\":{\"enable\":false,\"rotation\":0,\"horizontalSpacing\":10,\"verticalSpacing\":10}}"}"#;
     let watermark: Watermark = serde_json::from_str(watermark_str).unwrap();
-    Watermark::insert(&rb, &watermark).await.unwrap();
+    let ir = Watermark::insert(&rb, &watermark).await.unwrap();
+    println!("Watermark::insert result: {:?}", ir);
 
     let wt1 = WatermarkTemplate::select_by_map(&rb, value! {"id": &["test"]})
         .await
