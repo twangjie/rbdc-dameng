@@ -55,7 +55,6 @@ impl Connection for DamengConnection {
             for x in &params {
                 // encoded_params.push(x.encode(0)?) ;
                 encoded_params.push(x.clone().encode(0)?);
-
                 // encoded_params.push(value_to_json_string(x));
             }
             // log::debug!("encoded_params: {:?}",encoded_params);
@@ -69,9 +68,10 @@ impl Connection for DamengConnection {
             //     .map(|param| param.as_str().into_parameter())
             //     .collect();
 
+            // 创建拥有所有权的参数，而不是借用
             let odbc_params: Vec<Box<dyn InputParameter>> = encoded_params
-                .iter()
-                .map(|s| s.as_str().into_parameter()) // 或者 s.clone().into_parameter()
+                .into_iter()  // 使用 into_iter() 而不是 iter()
+                .map(|s| s.into_parameter())  // 直接使用 String 而不是 &str
                 .map(|p| Box::new(p) as Box<dyn InputParameter>)
                 .collect();
 
@@ -211,9 +211,16 @@ impl Connection for DamengConnection {
                 }
                 // log::debug!("encoded_params: {:?}",encoded_params);
 
+                // let odbc_params: Vec<Box<dyn InputParameter>> = encoded_params
+                //     .iter()
+                //     .map(|s| s.as_str().into_parameter()) // 或者 s.clone().into_parameter()
+                //     .map(|p| Box::new(p) as Box<dyn InputParameter>)
+                //     .collect();
+
+                // 创建拥有所有权的参数，而不是借用
                 let odbc_params: Vec<Box<dyn InputParameter>> = encoded_params
-                    .iter()
-                    .map(|s| s.as_str().into_parameter()) // 或者 s.clone().into_parameter()
+                    .into_iter()  // 使用 into_iter() 而不是 iter()
+                    .map(|s| s.into_parameter())  // 直接使用 String 而不是 &str
                     .map(|p| Box::new(p) as Box<dyn InputParameter>)
                     .collect();
 
